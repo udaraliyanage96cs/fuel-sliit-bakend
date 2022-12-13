@@ -66,4 +66,24 @@ class UserController extends Controller
             return false;
         }
     }
+
+    // This function for login a user
+    public function login_user(Request $req){
+
+        $message = '';
+        $user_id = -1;
+
+        $userdata = array(
+            'email'     => $req->email,
+            'password'  => $req->password
+        );
+        if (Auth::attempt($userdata)) {
+            $message = 'success';
+            $user_id = Auth::user()->id;
+        } else {        
+            $message = 'faild';
+        }
+
+        return response()->json(['status'=>$message,'user'=>$user_id]);
+    }
 }
