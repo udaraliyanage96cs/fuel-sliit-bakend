@@ -38,14 +38,14 @@ class UserController extends Controller
         }else{
             $message = 'Name, Email, Phone and Password cannot be empty';
         }
-        return $message;
+        return response()->json(['message'=>$message]);
     }
 
     // This function for delete a user
     public function delete_users(Request $req){
         $user = User::find($req->id);
         $user->delete();
-        return 'success';
+        return response()->json(['message'=>'success']);
     }
 
     // This function for update a user
@@ -55,7 +55,7 @@ class UserController extends Controller
             'name' => $req->name,
             'phone' => $req->phone,
         ]);
-        return 'success';
+        return response()->json(['message'=>'success']);
     }
     
     // This function for check given fields are empty or not
@@ -72,6 +72,7 @@ class UserController extends Controller
 
         $message = '';
         $user_id = -1;
+        $role = '';
 
         $userdata = array(
             'email'     => $req->email,
@@ -80,10 +81,11 @@ class UserController extends Controller
         if (Auth::attempt($userdata)) {
             $message = 'success';
             $user_id = Auth::user()->id;
+            $role = Auth::user()->role;
         } else {        
             $message = 'faild';
         }
 
-        return response()->json(['status'=>$message,'user'=>$user_id]);
+        return response()->json(['status'=>$message,'user'=>$user_id,'role'=>$role]);
     }
 }

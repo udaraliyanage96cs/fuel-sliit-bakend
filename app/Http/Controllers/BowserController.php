@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Models\Bowser;
 use App\Models\User;
+use App\Models\Station;
 use Auth;
 
 class BowserController extends Controller
@@ -14,12 +15,27 @@ class BowserController extends Controller
 
     // This function for get Bowsers
     public function get_bowser(Request $req){
-        if($req->id){
-            return Bowser::join('users','users.id','=','bowsers.user_id')
-            ->where('bowsers.id',$req->id)->first(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
+        $respond = "";
+
+        if($req->id>0){
+            $station = Station::where('user_id',$req->id)->first();
+            $respond = Bowser::join('users','users.id','=','bowsers.user_id') 
+            ->where('bowsers.station_id',$station->id)
+            ->get(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
         }else{
-            return Bowser::join('users','users.id','=','bowsers.user_id')->get(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
+            $respond = Bowser::join('users','users.id','=','bowsers.user_id')->get(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
         }
+
+        return response()->json(['respond'=>$respond]);
+    }
+
+    // This function for get Bowsers
+    public function get_bowser_specific(Request $req){
+        $respond = "";
+        $respond =  Bowser::join('users','users.id','=','bowsers.user_id')
+        ->where('bowsers.id',$req->id)->first(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
+
+        return response()->json(['respond'=>$respond]);
     }
 
     // This function for create a new Bowser with user
@@ -27,6 +43,8 @@ class BowserController extends Controller
 
         $message = '';
         $phoneLength = Str::length($req->phone);
+
+        $station = Station::where('user_id',$req->station_user_id)->first();
 
         if($this->check_empty($req->name,$req->email,$req->phone,$req->pwd)){
             if($phoneLength == 10){
@@ -44,12 +62,12 @@ class BowserController extends Controller
                 $bowser->name = $req->bname;
                 $bowser->vehicle_no = $req->vehicle_no;
                 $bowser->capacity = $req->capacity;
-                $bowser->curent_location = $req->location;
+                $bowser->curent_location = $station->location;
                 $bowser->user_id = $user->id;
-                $bowser->station_id = $req->station_id;
+                $bowser->station_id = $station->id;
                 $bowser->save();
 
-                $message = 'Bowser successfully created';
+                $message = 'success';
 
 
             }else{
@@ -58,7 +76,7 @@ class BowserController extends Controller
         }else{
             $message = 'Name, Email, Phone and Password cannot be empty';
         }
-        return $message;
+        return response()->json(['message'=>$message]);
     }
     
     // This function for delete a Bowser with User
@@ -67,7 +85,7 @@ class BowserController extends Controller
         $user = User::find($bowser->user_id);
         $user->delete();
         $bowser->delete();
-        return 'success';
+        return response()->json(['message'=>"success"]);
     }
 
     // This function for update a Bowser with user
@@ -88,7 +106,7 @@ class BowserController extends Controller
             'phone' => $req->phone,
         ]);
 
-        return 'success';
+        return response()->json(['message'=>'success']);
     }
 
     // This function for check given fields are empty or not
