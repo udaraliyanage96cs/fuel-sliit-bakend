@@ -13,13 +13,14 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('vehicles', function (Blueprint $table) {
+        Schema::create('queues', function (Blueprint $table) {
             $table->id();
-            $table->string('type'); //car,van,bus
-            $table->string('vehicle_no');
-            $table->string('capacity');
-            $table->string('fueltype_id');
-            $table->string('user_id');
+            $table->string('no'); 
+            $table->string('user_id'); 
+            $table->string('vehicle_id');
+            $table->string('fueltype_id'); 
+            $table->string('station_id');  
+            $table->string('status')->default('0');  
             $table->timestamps();
         });
     }
@@ -31,6 +32,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('vehicles');
+        Schema::dropIfExists('queues');
     }
 };

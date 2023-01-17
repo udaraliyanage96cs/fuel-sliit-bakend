@@ -30,6 +30,15 @@ class BowserController extends Controller
     }
 
     // This function for get Bowsers
+    public function get_bowser_home(Request $req){
+        $respond = "";
+        $respond = Bowser::join('users','users.id','=','bowsers.user_id') 
+        ->where('bowsers.user_id',$req->id)
+        ->first(['bowsers.id','bowsers.name','bowsers.vehicle_no','bowsers.curent_location','bowsers.capacity','users.name as uname','users.email','users.phone']);
+        return response()->json(['respond'=>$respond]);
+    }
+    
+    // This function for get Bowsers
     public function get_bowser_specific(Request $req){
         $respond = "";
         $respond =  Bowser::join('users','users.id','=','bowsers.user_id')

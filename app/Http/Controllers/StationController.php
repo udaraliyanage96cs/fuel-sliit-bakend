@@ -8,6 +8,9 @@ use Illuminate\Support\Str;
 use App\Models\Station;
 use App\Models\User;
 use App\Models\Fuelcapacity;
+use App\Models\Queue;
+use App\Models\Vehicle;
+
 use Auth;
 
 class StationController extends Controller
@@ -15,15 +18,18 @@ class StationController extends Controller
     // This function for get Stations
     public function get_stations(Request $req){
         $respond = "";
+        $queue = '';
         if($req->id){
             $respond = Station::join('users','users.id','=','stations.user_id')
-            ->where('stations.id',$req->id)
+            ->where('queues.status','0')
             ->first(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
+
+            $queue = Queue::where('station_id',$req->id)->where('status','0')->count();
         }else{
             $respond = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
             ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
         }
-        return response()->json(['respond'=>$respond]);
+        return response()->json(['respond'=>$respond,'count'=>$queue]);
     }
 
     // This function for create a new Station with user
@@ -130,6 +136,39 @@ class StationController extends Controller
         ]);
         return response()->json(['message'=>'success']);
     }
+    
+    // This function for get Stocks for specific station
+    public function get_queue(Request $req){
+        $station = Station::where('user_id',$req->id)->first();
+        $queue = '';
+        if($station != null){
+            $queue = Queue::join('fueltypes','fueltypes.id' ,'=', 'queues.fueltype_id')
+            ->join('users','users.id' ,'=', 'queues.user_id')
+            ->join('vehicles','vehicles.id' ,'=', 'queues.vehicle_id')
+            ->where('queues.station_id',$station->id)->where('queues.status',0)->get(['fueltypes.name as fname','users.name as uname','queues.no as no','queues.id as id','vehicles.type as vtype',
+            'vehicles.id as vid','fueltypes.id as fid','users.id as uid','queues.station_id as sid']);
+        }else{
+            $queue = 'error';
+        }
+       
+        return response()->json(['respond'=>$queue]);
+    }
+
+    // This function for get Queue Count
+    public function get_queue_count(Request $req){
+        $station = Station::where('user_id',$req->id)->first();
+        $count = 0;
+        if($station != null){
+            $count = count(Queue::join('fueltypes','fueltypes.id' ,'=', 'queues.fueltype_id')
+            ->join('users','users.id' ,'=', 'queues.user_id')
+            ->join('vehicles','vehicles.id' ,'=', 'queues.vehicle_id')
+            ->where('queues.station_id',$station->id)->where('queues.status',0)->get(['fueltypes.name as fname','users.name as uname','queues.no as no','queues.id as id','vehicles.type as vtype',
+            'vehicles.id as vid','fueltypes.id as fid','users.id as uid','queues.station_id as sid']));
+        }
+       
+        return response()->json(['respond'=>$count]);
+    }
+    
     
     
 }
