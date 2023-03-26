@@ -26,10 +26,86 @@ class StationController extends Controller
 
             $queue = Queue::where('station_id',$req->id)->where('status','0')->count();
         }else{
-            $respond = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
+            $respond = [];
+            $responds = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
             ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
+            
+            foreach($responds as $res){
+                $capacity = Fuelcapacity::where('station_id',$res->id)->get();
+                $res->current_qty = $capacity->sum('current_qty');
+                $respond[] = $res;
+            }
+            // $respond = Station::join('users','users.id','=','stations.user_id')
+            // ->join('fuelcapacities','fuelcapacities.station_id','=','stations.id')
+            // ->orderby('id','DESC')
+            // ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone','fuelcapacities.current_qty']);
+
         }
         return response()->json(['respond'=>$respond,'count'=>$queue]);
+    }
+
+    
+    public function getNearestFuelStations(Request $req) {
+        $fuelStations = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
+        ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
+        $nearestStations = []; // initialize empty array to hold nearest stations
+        foreach ($fuelStations as $station) {
+            $queue = Queue::where('station_id',$station->id)->where('status','0')->count();
+            $distance = $this->calculateDistance(explode(":",$station->location)[0], explode(":",$station->location)[1], $req->lat, $req->lng);
+            $station->distance = $distance;
+            $station->queue = $queue;
+            $nearestStations[] = $station;
+        }
+        
+        usort($nearestStations, function($a, $b) {
+            if ($a->distance == $b->distance) {
+                return $a->queue - $b->queue;
+            }
+            return strcmp($a->distance , $b->distance );
+            //return $a->distance <=> $b->distance;
+        });
+        
+        return response()->json(['respond'=>$nearestStations]); ;
+    }
+
+
+    public function getNearestFuelStationsWithOilCapacity(Request $req) {
+        $fuelStations = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
+        ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
+        $nearestStations = []; // initialize empty array to hold nearest stations
+        foreach ($fuelStations as $station) {
+            $vehicle = Vehicle::where('user_id',$req->uid)->first();
+            $capacity = Fuelcapacity::where('station_id',$station->id)->where('fueltype_id',$vehicle->fueltype_id)->first();
+            $distance = $this->calculateDistance(explode(":",$station->location)[0], explode(":",$station->location)[1], $req->lat, $req->lng);
+            if($capacity){
+                $capa = $capacity->current_qty;
+            }else{
+                $capa = 0;
+            }
+            $station->distance = $distance;
+            $station->capacity = $capa;
+            $nearestStations[] = $station;
+        }
+        
+        usort($nearestStations, function($a, $b) {
+            if ($a->distance == $b->distance) {
+                return $b->capacity - $a->capacity;
+            }
+            return strcmp($a->distance , $b->distance );
+            //return $a->distance <=> $b->distance;
+        });
+        
+        return response()->json(['respond'=>$nearestStations]); ;
+    }
+
+    public function calculateDistance($lat1, $lon1, $lat2, $lon2) {
+        $theta = $lon1 - $lon2;
+        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+        $dist = acos($dist);
+        $dist = rad2deg($dist);
+        $miles = $dist * 60 * 1.1515;
+        $km = $miles * 1.609344;
+        return round($km,2);
     }
 
     // This function for create a new Station with user

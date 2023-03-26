@@ -49,6 +49,9 @@ Route::prefix('user')->group(function () {
 
 Route::prefix('station')->group(function () {
     Route::get('/{id?}',[StationController::class,'get_stations']);
+    Route::get('/nearest/dis',[StationController::class,'getNearestFuelStations']);
+    Route::get('/nearest/oil',[StationController::class,'getNearestFuelStationsWithOilCapacity']);
+    
     Route::post('/create',[StationController::class,'create_station']);
     Route::get('/delete/{id}',[StationController::class,'delete_station']);
     Route::post('/update/{id}',[StationController::class,'update_station']);
