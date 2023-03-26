@@ -10,8 +10,9 @@ use App\Models\User;
 use App\Models\Fuelcapacity;
 use App\Models\Queue;
 use App\Models\Vehicle;
-
 use Auth;
+
+use Illuminate\Support\Facades\Http;
 
 class StationController extends Controller
 {
@@ -52,7 +53,11 @@ class StationController extends Controller
         foreach ($fuelStations as $station) {
             $queue = Queue::where('station_id',$station->id)->where('status','0')->count();
             $distance = $this->calculateDistance(explode(":",$station->location)[0], explode(":",$station->location)[1], $req->lat, $req->lng);
+            $point1 = explode(":",$station->location)[0].",".explode(":",$station->location)[1];
+            $point2 = $req->lat.",".$req->lng;
+            $api_distance = $this->getAPIDistance($point1, $point2, $req->lat, $req->lng);
             $station->distance = $distance;
+            $station->api_distance = $api_distance;
             $station->queue = $queue;
             $nearestStations[] = $station;
         }
@@ -96,6 +101,17 @@ class StationController extends Controller
         });
         
         return response()->json(['respond'=>$nearestStations]); ;
+    }
+
+    public function getAPIDistance($point1,$point2){
+        $key = "AIzaSyAqCHZnyToOOkw4fiumXxC5oTEaEVAIISA";
+        $response = Http::get('https://maps.googleapis.com/maps/api/directions/json?origin='.$point1.'&destination='.$point2.'&key='.$key);
+        if ($response->ok()) {
+            $data = $response->json();
+            return $data['routes'][0]['legs'][0]['distance']['text'];
+        } else {
+            return "not calculated";
+        }
     }
 
     public function calculateDistance($lat1, $lon1, $lat2, $lon2) {
