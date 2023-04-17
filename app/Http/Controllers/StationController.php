@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Fuelcapacity;
 use App\Models\Queue;
 use App\Models\Vehicle;
+use App\Models\Bowser;
 use Auth;
 
 use Illuminate\Support\Facades\Http;
@@ -20,12 +21,16 @@ class StationController extends Controller
     public function get_stations(Request $req){
         $respond = "";
         $queue = '';
+        $bowser = [];
         if($req->id){
             $respond = Station::join('users','users.id','=','stations.user_id')
             ->where('queues.status','0')
             ->first(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
 
             $queue = Queue::where('station_id',$req->id)->where('status','0')->count();
+
+            $bowser = Bowser::where('station_id',$req->id)->get();
+            $respond->bowsers = $bowser;
         }else{
             $respond = [];
             $responds = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
