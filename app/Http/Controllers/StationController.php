@@ -275,4 +275,22 @@ class StationController extends Controller
        
         return response()->json(['respond'=>$count]);
     }
+
+    public function myMethod()
+    {
+        // Input data
+        $data = [
+            'input1' => 5,
+            'input2' => 10,
+        ];
+
+        // Call the API endpoint
+        $response = Http::post('http://myapiendpoint.com/model', $data);
+
+        // Get the model's output
+        $output = $response->json()['output'];
+
+        // Return the output to the view
+        return view('myview', ['output' => $output]);
+    }
 }

@@ -116,3 +116,7 @@ Route::prefix('audit')->group(function () {
     Route::post('/update/{id}',[AuditController::class,'update_audit']);
     
 });
+
+Route::prefix('mymethod')->group(function () {
+    Route::get('/',[StationController::class,'mymethod_func']);
+});
