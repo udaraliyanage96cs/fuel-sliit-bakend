@@ -20,18 +20,21 @@ class StationController extends Controller
     // This function for get Stations
     public function get_stations(Request $req){
         $respond = "";
-        $queue = '';
+        $queue = "";
         $bowser = [];
         if($req->id){
             $respond = Station::join('users','users.id','=','stations.user_id')
-            ->where('queues.status','0')
+            ->where('stations.id',$req->id)
             ->first(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
-
             $queue = Queue::where('station_id',$req->id)->where('status','0')->count();
-
+            
             $bowser = Bowser::where('station_id',$req->id)->get();
             $respond->bowsers = $bowser;
+            
         }else{
+            // $respond = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
+            // ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
+            
             $respond = [];
             $responds = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
             ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
@@ -41,28 +44,29 @@ class StationController extends Controller
                 $res->current_qty = $capacity->sum('current_qty');
                 $respond[] = $res;
             }
+            
             // $respond = Station::join('users','users.id','=','stations.user_id')
-            // ->join('fuelcapacities','fuelcapacities.station_id','=','stations.id')
+            // ->leftjoin('fuelcapacities','fuelcapacities.station_id','=','stations.id')
             // ->orderby('id','DESC')
             // ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone','fuelcapacities.current_qty']);
-
         }
         return response()->json(['respond'=>$respond,'count'=>$queue]);
     }
-
     
     public function getNearestFuelStations(Request $req) {
+        $today = now()->toDateString();
         $fuelStations = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
         ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
         $nearestStations = []; // initialize empty array to hold nearest stations
         foreach ($fuelStations as $station) {
-            $queue = Queue::where('station_id',$station->id)->where('status','0')->count();
+          $queue = Queue::where('station_id',$station->id)->whereDate('created_at',$today)->where('status','0')->count();
             $distance = $this->calculateDistance(explode(":",$station->location)[0], explode(":",$station->location)[1], $req->lat, $req->lng);
             $point1 = explode(":",$station->location)[0].",".explode(":",$station->location)[1];
             $point2 = $req->lat.",".$req->lng;
             $api_distance = $this->getAPIDistance($point1, $point2, $req->lat, $req->lng);
-            $station->distance = $distance;
             $station->api_distance = $api_distance;
+            
+            $station->distance = $distance;
             $station->queue = $queue;
             $nearestStations[] = $station;
         }
@@ -78,7 +82,6 @@ class StationController extends Controller
         return response()->json(['respond'=>$nearestStations]); ;
     }
 
-
     public function getNearestFuelStationsWithOilCapacity(Request $req) {
         $fuelStations = Station::join('users','users.id','=','stations.user_id')->orderby('id','DESC')
         ->get(['stations.id','stations.name','stations.location','stations.availability','users.name as uname','users.email','users.phone']);
@@ -87,6 +90,12 @@ class StationController extends Controller
             $vehicle = Vehicle::where('user_id',$req->uid)->first();
             $capacity = Fuelcapacity::where('station_id',$station->id)->where('fueltype_id',$vehicle->fueltype_id)->first();
             $distance = $this->calculateDistance(explode(":",$station->location)[0], explode(":",$station->location)[1], $req->lat, $req->lng);
+            
+            $point1 = explode(":",$station->location)[0].",".explode(":",$station->location)[1];
+            $point2 = $req->lat.",".$req->lng;
+            $api_distance = $this->getAPIDistance($point1, $point2, $req->lat, $req->lng);
+            $station->api_distance = $api_distance;
+            
             if($capacity){
                 $capa = $capacity->current_qty;
             }else{
@@ -107,7 +116,16 @@ class StationController extends Controller
         
         return response()->json(['respond'=>$nearestStations]); ;
     }
-
+    public function calculateDistance($lat1, $lon1, $lat2, $lon2) {
+        $theta = $lon1 - $lon2;
+        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+        $dist = acos($dist);
+        $dist = rad2deg($dist);
+        $miles = $dist * 60 * 1.1515;
+        $km = $miles * 1.609344;
+        return round($km,2);
+    }
+    
     public function getAPIDistance($point1,$point2){
         $key = "AIzaSyAqCHZnyToOOkw4fiumXxC5oTEaEVAIISA";
         $response = Http::get('https://maps.googleapis.com/maps/api/directions/json?origin='.$point1.'&destination='.$point2.'&key='.$key);
@@ -117,16 +135,6 @@ class StationController extends Controller
         } else {
             return "not calculated";
         }
-    }
-
-    public function calculateDistance($lat1, $lon1, $lat2, $lon2) {
-        $theta = $lon1 - $lon2;
-        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
-        $dist = acos($dist);
-        $dist = rad2deg($dist);
-        $miles = $dist * 60 * 1.1515;
-        $km = $miles * 1.609344;
-        return round($km,2);
     }
 
     // This function for create a new Station with user
@@ -242,30 +250,29 @@ class StationController extends Controller
             $queue = Queue::join('fueltypes','fueltypes.id' ,'=', 'queues.fueltype_id')
             ->join('users','users.id' ,'=', 'queues.user_id')
             ->join('vehicles','vehicles.id' ,'=', 'queues.vehicle_id')
-            ->where('queues.station_id',$station->id)->where('queues.status',0)->get(['fueltypes.name as fname','users.name as uname','queues.no as no','queues.id as id','vehicles.type as vtype',
-            'vehicles.id as vid','fueltypes.id as fid','users.id as uid','queues.station_id as sid']);
+            ->where('queues.station_id',$station->id)
+            ->where('queues.status',0)
+            ->get(['queues.id as id','fueltypes.name as fname','users.name as uname','queues.no as no','vehicles.type as vtype','vehicles.id as vid','fueltypes.id as fid','users.id as uid','queues.station_id as sid']);
         }else{
             $queue = 'error';
         }
        
         return response()->json(['respond'=>$queue]);
     }
-
+    
     // This function for get Queue Count
     public function get_queue_count(Request $req){
         $station = Station::where('user_id',$req->id)->first();
+        $today = now()->toDateString();
         $count = 0;
         if($station != null){
             $count = count(Queue::join('fueltypes','fueltypes.id' ,'=', 'queues.fueltype_id')
             ->join('users','users.id' ,'=', 'queues.user_id')
             ->join('vehicles','vehicles.id' ,'=', 'queues.vehicle_id')
-            ->where('queues.station_id',$station->id)->where('queues.status',0)->get(['fueltypes.name as fname','users.name as uname','queues.no as no','queues.id as id','vehicles.type as vtype',
+            ->where('queues.station_id',$station->id)->where('queues.status',0)->whereDate('queues.created_at',$today)->get(['fueltypes.name as fname','users.name as uname','queues.no as no','queues.id as id','vehicles.type as vtype',
             'vehicles.id as vid','fueltypes.id as fid','users.id as uid','queues.station_id as sid']));
         }
        
         return response()->json(['respond'=>$count]);
     }
-    
-    
-    
 }
